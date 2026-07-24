@@ -1,0 +1,9 @@
+{
+  "lark_webhook": "__FROM_GITHUB_SECRETS__",
+  "lark_sign_secret": "__FROM_GITHUB_SECRETS__",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "daily_report_hour": 8,
+  "market": "EU",
+  "accounts_db": "../ads-pos-lark-bot/accounts.json",
+  "shared_config": "../ads-pos-lark-bot/config.json"
+}

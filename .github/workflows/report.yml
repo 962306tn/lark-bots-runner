@@ -1,0 +1,39 @@
+name: lark-report-bots
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # backup; nhịp chính do cron-job.org trigger
+  workflow_dispatch: {}
+concurrency:
+  group: bots
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bot PH (ads + Pancake + dashboard)
+        continue-on-error: true
+        env:
+          META_TOKEN: ${{ secrets.META_TOKEN }}
+          PANCAKE_API_KEY: ${{ secrets.PANCAKE_API_KEY }}
+          PANCAKE_SHOP_ID: ${{ secrets.PANCAKE_SHOP_ID }}
+          PANCAKE_SHOP_NAME: ${{ secrets.PANCAKE_SHOP_NAME }}
+          LARK_WEBHOOK_PH: ${{ secrets.LARK_WEBHOOK_PH }}
+          LARK_SIGN_PH: ${{ secrets.LARK_SIGN_PH }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: python3 ads-pos-lark-bot/bot.py
+      - name: Bot POD/EU (ads)
+        continue-on-error: true
+        env:
+          META_TOKEN: ${{ secrets.META_TOKEN }}
+          LARK_WEBHOOK_POD: ${{ secrets.LARK_WEBHOOK_POD }}
+          LARK_SIGN_POD: ${{ secrets.LARK_SIGN_POD }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: python3 pod-ads-bot/bot.py

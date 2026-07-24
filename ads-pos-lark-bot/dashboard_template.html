@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🇵🇭 Dashboard PH — Ads & Bán hàng</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1420;--card:#1a2232;--tx:#e8ecf4;--mut:#8b97ad;--acc:#4f8cff;--grn:#3ddc84;--red:#ff5f6b;--bd:#2a3550}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,'Segoe UI',Roboto,sans-serif;padding:24px}
+h1{font-size:20px;margin-bottom:4px}
+.sub{color:var(--mut);font-size:12px;margin-bottom:20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 16px}
+.card .l{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.card .v{font-size:22px;font-weight:700;margin-top:4px}
+.card .s{font-size:11px;color:var(--mut)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px}
+.panel h2{font-size:14px;margin-bottom:10px;color:var(--tx)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{color:var(--mut);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid #222c42}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:#1f2940}
+.pos{color:var(--grn)}.neg{color:var(--red)}
+.tag{font-size:10px;background:#26304a;color:var(--mut);border-radius:6px;padding:1px 6px;margin-left:6px}
+canvas{max-height:260px}
+</style>
+</head>
+<body>
+<h1>🇵🇭 Philippines — Ads & Bán hàng</h1>
+<div class="sub" id="updated"></div>
+<div class="cards" id="cards"></div>
+<div class="panel"><h2>Xu hướng 14 ngày — Spend vs Doanh thu (VND)</h2><canvas id="trend"></canvas></div>
+<div class="grid">
+  <div class="panel"><h2>Chiến dịch hôm nay</h2>
+    <table id="camps"><thead><tr><th>Campaign</th><th class="num">Spend ₫</th><th class="num">Clicks</th><th class="num">Đơn (pixel)</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="panel"><h2>Chi phí / Doanh số theo sản phẩm (hôm nay)</h2>
+    <table id="prods"><thead><tr><th>Sản phẩm</th><th class="num">SL</th><th class="num">Spend ₫</th><th class="num">Doanh thu ₫</th><th class="num">ROAS</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script>
+const D = /*__DATA__*/null;
+const f = n => (n??0).toLocaleString('vi-VN');
+document.getElementById('updated').textContent = `Cập nhật: ${D.updated} · Tỷ giá $1 = ₫${f(Math.round(D.fx.VND))} = ₱${D.fx.PHP.toFixed(1)} · File tự làm mới mỗi giờ bởi bot`;
+const t = D.today||{};
+const roas = t.spend_vnd>0 ? (t.rev_vnd/t.spend_vnd) : null;
+document.getElementById('cards').innerHTML = [
+ ['Spend hôm nay', '₫'+f(t.spend_vnd), ''],
+ ['Doanh thu hôm nay', '₫'+f(t.rev_vnd), '₱'+f(t.rev_php)],
+ ['Số đơn', f(t.orders), ''],
+ ['ROAS', roas? roas.toFixed(2):'—', roas? (roas>=1?'đang lãi ads':'đang lỗ ads'):''],
+].map(([l,v,s])=>`<div class="card"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+new Chart(document.getElementById('trend'),{type:'bar',data:{labels:D.trend.labels,
+ datasets:[{label:'Spend ₫',data:D.trend.spend,backgroundColor:'#4f8cff88',borderRadius:4},
+           {label:'Doanh thu ₫',data:D.trend.rev,backgroundColor:'#3ddc8488',borderRadius:4}]},
+ options:{plugins:{legend:{labels:{color:'#e8ecf4'}}},scales:{x:{ticks:{color:'#8b97ad'},grid:{color:'#222c42'}},y:{ticks:{color:'#8b97ad',callback:v=>v>=1e6?(v/1e6)+'M':v},grid:{color:'#222c42'}}}}});
+document.querySelector('#camps tbody').innerHTML = D.campaigns.map(c=>
+ `<tr><td title="${c.campaign}">${c.campaign.length>48?c.campaign.slice(0,48)+'…':c.campaign}<span class="tag">${c.account}</span></td>
+ <td class="num">${f(c.spend_vnd)}</td><td class="num">${f(c.clicks)}</td>
+ <td class="num ${c.purchases>0?'pos':''}">${c.purchases||'—'}</td></tr>`).join('') || '<tr><td colspan="4">Chưa có dữ liệu</td></tr>';
+document.querySelector('#prods tbody').innerHTML = D.products.map(p=>
+ `<tr><td>${p.name}</td><td class="num">${f(p.qty)}</td><td class="num">${f(p.spend_vnd)}</td><td class="num">${f(p.rev_vnd)}</td>
+ <td class="num ${p.roas>=1?'pos':(p.roas!==null&&p.spend_vnd>0?'neg':'')}">${p.roas??'—'}</td></tr>`).join('') || '<tr><td colspan="5">Chưa có dữ liệu</td></tr>';
+</script>
+</body>
+</html>

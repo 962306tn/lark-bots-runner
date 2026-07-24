@@ -1,0 +1,26 @@
+{
+  "meta_token": "__FROM_GITHUB_SECRETS__",
+  "meta_token_expires": "2026-09-02",
+  "pancake_api_key": "__FROM_GITHUB_SECRETS__",
+  "pancake_shop_id": 0,
+  "pancake_shop_name": "__FROM_GITHUB_SECRETS__",
+  "lark_webhook": "__FROM_GITHUB_SECRETS__",
+  "lark_sign_secret": "__FROM_GITHUB_SECRETS__",
+  "timezone": "Asia/Manila",
+  "daily_report_hour": 9,
+  "fx_to_php": {
+    "USD": 58.0,
+    "VND": 0.00232,
+    "PHP": 1.0
+  },
+  "markets": [
+    "PH"
+  ],
+  "roas_alert_threshold": 2.8,
+  "roas_alert_min_spend_vnd": 500000,
+  "confirmed_exclude_statuses": [
+    0,
+    6,
+    7
+  ]
+}

@@ -38,7 +38,7 @@ jobs:
           GIST_ID: ${{ secrets.GIST_ID }}
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: python3 pod-ads-bot/bot.py
-name: Keepalive (reset đồng hồ 60 ngày, tránh disabled_inactivity)
+      - name: Keepalive (reset đồng hồ 60 ngày, tránh disabled_inactivity)
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

@@ -4,7 +4,7 @@
 - PH (Philippines): quy đổi tất cả về VND (spend + doanh thu Pancake)
 - EU (POD): tính bằng USD (doanh thu Mayzing - sắp tích hợp)
 - VN / nhóm khác: VND
-Chạy: python3 bot.py            (chế độ scheduled - 15 phút/lần)
+Chạy: python3 bot.py            (cron 15 phút/lần; báo cáo theo khung 2 tiếng giờ VN, xem report_hours)
       python3 bot.py --now      (ép gửi báo cáo tổng hợp ngay)
 Mapping tài khoản -> thị trường: accounts.json (sửa field "market": PH/EU/VN)
 """
@@ -59,6 +59,26 @@ def sync_to_gist():
 ACC_PATH = os.path.join(DIR, "accounts.json")
 STATE_PATH = os.path.join(DIR, "state.json")
 TZ = ZoneInfo(CFG["timezone"])
+
+# ---------- Lịch báo cáo: 2 tiếng/lần theo giờ VN, đêm nghỉ ----------
+REPORT_TZ = ZoneInfo(CFG.get("report_timezone", "Asia/Ho_Chi_Minh"))
+REPORT_HOURS = CFG.get("report_hours", [8, 10, 12, 14, 16, 18, 20, 22, 0])
+
+def report_slot():
+    """Giờ bắt đầu khung báo cáo hiện tại (giờ VN); None nếu ngoài khung.
+    Cho trễ tối đa ~2 tiếng (giờ hiện tại hoặc giờ trước đó) phòng cron chạy muộn."""
+    now = datetime.now(REPORT_TZ)
+    for back in (0, 1):
+        t = now - timedelta(hours=back)
+        if t.hour in REPORT_HOURS:
+            return t.replace(minute=0, second=0, microsecond=0)
+    return None
+
+def quiet_hours():
+    """Đêm đến sáng (sau khung cuối 0h tới trước khung đầu 8h): tắt cả noti đơn mới."""
+    h = datetime.now(REPORT_TZ).hour
+    return 1 <= h < min(x for x in REPORT_HOURS if x > 0)
+
 MARKET_LABEL = {"PH": "🇵🇭 PHILIPPINES", "EU": "🇪🇺 EU POD", "VN": "🇻🇳 VIỆT NAM"}
 MARKET_CUR = {"PH": "VND", "EU": "USD", "VN": "VND"}
 
@@ -427,8 +447,9 @@ def main():
         if dl <= 7: warn = f"\n⚠️ Meta token hết hạn sau {dl} ngày — cần gia hạn!"
     except Exception: pass
 
-    # 1. đơn mới — gộp theo SKU (không liệt kê từng đơn)
-    if new_orders and not first_run:
+    # 1. đơn mới — gộp theo SKU (không liệt kê từng đơn); ban đêm gom lại, sáng báo 1 lần
+    quiet = quiet_hours()
+    if new_orders and not first_run and not quiet:
         k, add = len(new_orders), order_revenue(new_orders)
         sku_lines = "\n".join(
             f"  • {name}: {v['orders']} đơn · {v['qty']} sp · ₱{v['rev']:,.0f}"
@@ -438,8 +459,10 @@ def main():
                   f"\n📦 Hôm nay: {n} đơn · ₱{rev:,.0f}")
         print(f"SENT sale noti ({k})")
 
-    # 2. báo cáo hàng giờ (hoặc --now) + sản phẩm + so sánh + cảnh báo ROAS + dashboard
-    if force_now or time.time() - st.get("last_hourly", 0) >= 3540:
+    # 2. báo cáo theo khung 2 tiếng (hoặc --now) + sản phẩm + so sánh + cảnh báo ROAS + dashboard
+    slot = report_slot()
+    slot_key = slot.strftime("%Y-%m-%dT%H") if slot else None
+    if force_now or (slot_key and st.get("last_slot") != slot_key):
         alert = ""
         try:
             spends = meta_spend("today")
@@ -459,7 +482,8 @@ def main():
                 print("products fail:", e)
             # --- so sánh cùng giờ hôm qua (từ snapshot) ---
             snaps = st.setdefault("snapshots", {})
-            hh = now.strftime("%H")
+            # key theo khung báo cáo (không theo phút chạy thực tế) để so sánh khớp giờ hôm qua
+            hh = (slot.astimezone(TZ) if slot else now).strftime("%H")
             today_key, yday_key = now.date().isoformat(), (now.date() - timedelta(days=1)).isoformat()
             snaps.setdefault(today_key, {})[hh] = {"spend": round(ph["total"]),
                                                    "rev": round(rev_vnd), "orders": n}
@@ -492,7 +516,8 @@ def main():
         send_report_post(alert + msg + warn)
         if msg2: lark_send_card("🛒 CHI PHÍ / DOANH SỐ THEO SẢN PHẨM", msg2, "turquoise")
         st["last_hourly"] = time.time()
-        print("SENT hourly")
+        if slot_key: st["last_slot"] = slot_key
+        print("SENT report", slot_key or "--now")
 
     # 3. tổng kết hôm qua
     today_str = now.date().isoformat()
@@ -521,7 +546,8 @@ def main():
         st["last_daily"] = today_str
         print("SENT daily")
 
-    st["seen_ids"] = ids_today
+    # ban đêm giữ nguyên seen_ids -> đơn đêm được gộp vào noti đầu tiên buổi sáng
+    if not quiet: st["seen_ids"] = ids_today
     st["last_check"] = time.time()
     jsave(STATE_PATH, st)
     sync_to_gist()

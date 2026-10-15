@@ -22,5 +22,7 @@
     0,
     6,
     7
-  ]
+  ],
+  "report_hours": [8, 10, 12, 14, 16, 18, 20, 22, 0],
+  "report_timezone": "Asia/Ho_Chi_Minh"
 }

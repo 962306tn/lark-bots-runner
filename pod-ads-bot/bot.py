@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Bot POD/EU: báo cáo Meta Ads spend (USD) cho thị trường EU về Lark riêng.
-- Mỗi giờ: spend từng acc EU + top campaigns
+- Mỗi 2 tiếng (8h–0h giờ VN, report_hours): spend từng acc EU + top campaigns
 - Sau 8h sáng: tổng kết hôm qua
 - Doanh thu Mayzing: chưa tích hợp (chờ API key / VPS)
 Dùng chung meta_token + accounts.json với ads-pos-lark-bot.
@@ -49,6 +49,19 @@ ACC_PATH = os.path.join(DIR, CFG["accounts_db"])
 STATE_PATH = os.path.join(DIR, "state.json")
 TZ = ZoneInfo(CFG["timezone"])
 MARKET = CFG.get("market", "EU")
+
+# ---------- Lịch báo cáo: 2 tiếng/lần theo giờ VN, đêm nghỉ ----------
+REPORT_HOURS = CFG.get("report_hours", [8, 10, 12, 14, 16, 18, 20, 22, 0])
+
+def report_slot():
+    """Khung báo cáo hiện tại (giờ VN), vd '2026-10-14T10'; None nếu ngoài khung.
+    Cho trễ tối đa ~2 tiếng (giờ hiện tại hoặc giờ trước đó) phòng cron chạy muộn."""
+    now = datetime.now(TZ)
+    for back in (0, 1):
+        t = now - timedelta(hours=back)
+        if t.hour in REPORT_HOURS:
+            return t.strftime("%Y-%m-%dT%H")
+    return None
 
 def jload(p, d):
     try: return json.load(open(p))
@@ -169,7 +182,8 @@ def main():
     except Exception: pass
 
     now8 = datetime.now(TZ8)
-    if force_now or time.time() - st.get("last_hourly", 0) >= 3540:
+    slot_key = report_slot()
+    if force_now or (slot_key and st.get("last_slot") != slot_key):
         title = f"📊 POD UPDATE — ngày {now8.strftime('%d/%m')} UTC-8 ({now8.strftime('%H:%M')} US · {now.strftime('%H:%M')} VN)"
         try:
             md = build_report("today")
@@ -177,7 +191,8 @@ def main():
             md = f"💸 LỖI Meta: {e}"
         lark_send_card(title, md + warn)
         st["last_hourly"] = time.time()
-        print("SENT hourly")
+        if slot_key: st["last_slot"] = slot_key
+        print("SENT report", slot_key or "--now")
 
     # tổng kết khi ngày UTC-8 vừa khép (00:00 US = 15:00 VN)
     today8_str = now8.date().isoformat()
